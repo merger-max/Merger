@@ -34,10 +34,10 @@ const PROVIDER_PATTERNS = /model not found|unsupported model|not supported|model
 /**
  * تصنيف موحد لأخطاء المزود — يحدد الإجراء التالي:
  *  disabled  → المفتاح مرفوض (401/403 أو رسالة توثيق) → تعطيل تلقائي → التالي
- *  exhausted → نفاد رصيد (402 أو رسالة رصيد — تُفحص قبل 400) → تعليم exhausted → التالي
+ *  temporary → 429 دائمًا مؤقت (حد معدل عابر، حتى لو ذكرت رسالته quota) + 5xx/شبكة → التالي والمفتاح سليم
+ *  exhausted → نفاد رصيد حقيقي (402 أو رسالة رصيد — تُفحص بعد 429 وقبل 400) → تعليم exhausted → التالي
  *  provider  → الموديل غير مدعوم لدى هذا المزود → التالي
  *  params    → معطيات الطلب خاطئة → توقف فورًا (تبديل المفاتيح لن يحلها)
- *  temporary → 429/5xx/شبكة → التالي الآن والمفتاح يبقى سليمًا
  */
 export function classifyProviderError(
   status: number | null,
@@ -49,23 +49,27 @@ export function classifyProviderError(
   if (status === 401 || status === 403 || DISABLED_PATTERNS.test(msg)) {
     return "disabled";
   }
-  // 2) نفاد الرصيد — قبل فحص 400 لأن بعض المزودين يرسلونه بحالة 400
+  // 2) 429 = حد معدل عابر دائمًا — يُفحص قبل أنساب الرصيد لأن رسائل الحد عادة تذكر quota/rate limit
+  if (status === 429) {
+    return "temporary";
+  }
+  // 3) نفاد الرصيد — قبل فحص 400 لأن بعض المزودين يرسلونه بحالة 400
   if (status === 402 || EXHAUSTED_PATTERNS.test(msg)) {
     return "exhausted";
   }
-  // 3) الموديل غير مدعوم لدى المزود
+  // 4) الموديل غير مدعوم لدى المزود
   if (
     PROVIDER_PATTERNS.test(msg) &&
     (status === 400 || status === 404 || status === 422 || status === null)
   ) {
     return "provider";
   }
-  // 4) معطيات الطلب
+  // 5) معطيات الطلب
   if (status === 400 || status === 422) {
     return "params";
   }
-  // 5) 429 / 5xx / غير معروف → مؤقت
-  if (status === 429 || (status !== null && status >= 500) || status === null) {
+  // 6) 5xx / شبكة / غير معروف → مؤقت
+  if ((status !== null && status >= 500) || status === null) {
     return "temporary";
   }
   // أي شيء آخر غير متوقع — نعامله كمؤقت لنستمر بالمحاولة

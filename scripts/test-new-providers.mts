@@ -94,6 +94,15 @@ spy = async () => jsonRes(429, { success: false, errors: [{ code: 429, message: 
     check("CF: 429 = فئة temporary", cls === "temporary", { cls });
   }
 }
+// 1e) تصنيف الحدود — 429 الذي يذكر quota يجب أن يبقى مؤقتًا وليس نفاد رصيد (تثبيت الإصلاح)
+{
+  check("CLS: 429 + رسالة quota = temporary", classifyProviderError(429, "Rate limit quota exceeded, retry later") === "temporary");
+  check("CLS: 402 = exhausted", classifyProviderError(402, "payment required") === "exhausted");
+  check("CLS: 400 + insufficient = exhausted (رصيد بحالة 400)", classifyProviderError(400, "insufficient credit balance") === "exhausted");
+  check("CLS: 400 + model not found = provider", classifyProviderError(400, "model does not exist") === "provider");
+  check("CLS: 403 = disabled", classifyProviderError(403, "forbidden") === "disabled");
+  check("CLS: 500 = temporary", classifyProviderError(500, "internal error") === "temporary");
+}
 
 /* ============ 2) Volcengine Seedance ============ */
 console.log("\n🟨 Volcengine Ark (Seedance)");
