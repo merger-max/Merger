@@ -1,10 +1,13 @@
 /**
  * اختبار المزودين الثلاثة الجدد بدون شبكة — fetch وهمي يتحقق من الأشكال المرسلة والردود المحللة.
- * يغطي: تحليل مفتاح Cloudflare، خريطة النسب/المدة لدى Volcengine، حالة Novita، وتصنيف الأخطاء.
+ * يغطي: تحليل مفتاح Cloudflare، خريطة النسب/المدة لدى Volcengine، حالة Novita،
+ * نمط المهام غير المتزامنة لدى ModelScope و Agnes، وتصنيف الأخطاء.
  */
 import { cloudflareAdapter } from "../src/lib/providers/cloudflare";
 import { volcAdapter } from "../src/lib/providers/volc";
 import { novitaAdapter } from "../src/lib/providers/novita";
+import { modelscopeAdapter } from "../src/lib/providers/modelscope";
+import { agnesAdapter } from "../src/lib/providers/agnes";
 import { classifyProviderError } from "../src/lib/keys";
 import { resolveModel } from "../src/lib/models";
 
@@ -218,7 +221,132 @@ console.log("\n🟩 Novita AI");
   }
 }
 
-/* ============ 4) سجل الموديلات ============ */
+/* ============ 4) ModelScope ============ */
+console.log("\n🟪 ModelScope API-Inference");
+const msInput = (prompt = "a lion") => ({
+  prompt,
+  params: { __type: "image" },
+  providerModel: "Tongyi-MAI/Z-Image-Turbo",
+});
+// 4a) الإنشاء — الهيدر غير المتزامن والجسم والنقطة
+{
+  let sentHeaders: any;
+  let sentBody: any;
+  spy = async (url, init) => {
+    check("MS: نقطة الإنشاء", url.endsWith("/v1/images/generations"), url);
+    sentHeaders = init?.headers as any;
+    sentBody = JSON.parse(init?.body as string);
+    return jsonRes(200, { task_id: "ms-task-1", task_status: "PENDING" });
+  };
+  const r = await modelscopeAdapter.createTask("ms-key", "z-image-turbo", msInput());
+  check("MS: task_id مستخرج", r.providerTaskId === "ms-task-1");
+  check("MS: X-ModelScope-Async-Mode: true", sentHeaders?.["X-ModelScope-Async-Mode"] === "true", sentHeaders);
+  check("MS: Bearer توكن", sentHeaders?.Authorization === "Bearer ms-key");
+  check("MS: اسم الموديل يُرسل", sentBody.model === "Tongyi-MAI/Z-Image-Turbo");
+  check("MS: prompt يُرسل", sentBody.prompt === "a lion");
+}
+// 4b) الاستعلام — الحالات الثلاث
+{
+  spy = async (url) => {
+    check("MS: نقطة الاستعلام", url.endsWith("/v1/tasks/ms-task-1"), url);
+    return jsonRes(200, { task_status: "RUNNING" });
+  };
+  const p = await modelscopeAdapter.checkTask("ms-key", "ms-task-1");
+  check("MS: RUNNING → processing", p.status === "processing");
+  spy = async () => jsonRes(200, { task_status: "SUCCEED", output_images: ["https://ms.example/a.jpg"] });
+  const d = await modelscopeAdapter.checkTask("ms-key", "ms-task-1");
+  check("MS: SUCCEED → completed بالرابط", d.status === "completed" && d.urls?.[0] === "https://ms.example/a.jpg");
+  spy = async () => jsonRes(200, { task_status: "FAILED", message: "content filtered" });
+  const f = await modelscopeAdapter.checkTask("ms-key", "ms-task-1");
+  check("MS: FAILED → فشل بالسبب", f.status === "failed" && f.error === "content filtered");
+}
+// 4c) تصنيف الأخطاء — disabled ثم temporary (429 الحصة اليومية)
+{
+  spy = async () => jsonRes(401, { message: "Invalid token" });
+  try {
+    await modelscopeAdapter.createTask("bad", "z-image-turbo", msInput());
+    check("MS: يجب أن يرمي عند 401", false);
+  } catch (err: any) {
+    check("MS: 401 → disabled (تعطيل تلقائي)", classifyProviderError(err.status, err.message) === "disabled", { cls: classifyProviderError(err.status, err.message) });
+  }
+  spy = async () => jsonRes(429, { message: "Too many requests" });
+  try {
+    await modelscopeAdapter.createTask("k", "z-image-turbo", msInput());
+    check("MS: يجب أن يرمي عند 429", false);
+  } catch (err: any) {
+    check("MS: 429 → temporary (المفتاح يبقى سليمًا)", classifyProviderError(err.status, err.message) === "temporary", { cls: classifyProviderError(err.status, err.message) });
+  }
+}
+
+/* ============ 5) Agnes AI ============ */
+console.log("\n🟧 Agnes AI");
+// 5a) صور متزامنة — b64_json ثم url
+{
+  spy = async (url, init) => {
+    check("AGNES: نقطة الصور", url.endsWith("/v1/images/generations"), url);
+    const b = JSON.parse(init?.body as string);
+    check("AGNES: model الصور يُرسل", b.model === "agnes-image-2.1-flash");
+    check("AGNES: n=1", b.n === 1);
+    check("AGNES: Bearer مفتاح", (init?.headers as any)?.Authorization === "Bearer agnes-key");
+    return jsonRes(200, { data: [{ b64_json: "QUJD" }] });
+  };
+  const r1 = await agnesAdapter.createImageSync!("agnes-key", {
+    prompt: "a bird",
+    params: { __type: "image" },
+    providerModel: "agnes-image-2.1-flash",
+  });
+  check("AGNES: b64_json → data URI", r1.urls[0] === "data:image/png;base64,QUJD");
+  spy = async () => jsonRes(200, { data: [{ url: "https://agnes.example/a.png" }] });
+  const r2 = await agnesAdapter.createImageSync!("agnes-key", {
+    prompt: "a bird",
+    params: { __type: "image" },
+    providerModel: "agnes-image-2.1-flash",
+  });
+  check("AGNES: url تُمرر كما هي", r2.urls[0] === "https://agnes.example/a.png");
+}
+// 5b) فيديو — الإنشاء وضغط model داخل المعرف
+{
+  spy = async (url, init) => {
+    check("AGNES: نقطة الفيديو", url.endsWith("/v1/videos"), url);
+    const b = JSON.parse(init?.body as string);
+    check("AGNES: model الفيديو يُرسل", b.model === "agnes-video-2.5");
+    check("AGNES: prompt يُرسل", b.prompt === "waves");
+    return jsonRes(200, { video_id: "vid-7" });
+  };
+  const r = await agnesAdapter.createTask("agnes-key", "agnes-video-2-5", {
+    prompt: "waves",
+    params: { __type: "video" },
+    providerModel: "agnes-video-2.5",
+  });
+  check("AGNES: المعرف بصيغة model@@video_id", r.providerTaskId === "agnes-video-2.5@@vid-7", r.providerTaskId);
+}
+// 5c) الاستعلام — يفك model_name من المعرف ويحلل الحالات
+{
+  spy = async (url) => {
+    check("AGNES: نقطة الاستعلام بالباراميترين", url.endsWith("/agnesapi?video_id=vid-7&model_name=agnes-video-2.5"), url);
+    return jsonRes(200, { status: "processing", progress: 55 });
+  };
+  const p = await agnesAdapter.checkTask("agnes-key", "agnes-video-2.5@@vid-7");
+  check("AGNES: processing بتقدم 55%", p.status === "processing" && p.progress === 55);
+  spy = async () => jsonRes(200, { status: "completed", video_url: "https://agnes.example/v.mp4" });
+  const d = await agnesAdapter.checkTask("agnes-key", "agnes-video-2.5@@vid-7");
+  check("AGNES: completed → completed بالرابط", d.status === "completed" && d.urls?.[0] === "https://agnes.example/v.mp4");
+  spy = async () => jsonRes(200, { status: "failed", message: "policy" });
+  const f = await agnesAdapter.checkTask("agnes-key", "agnes-video-2.5@@vid-7");
+  check("AGNES: failed → فشل بالسبب", f.status === "failed" && f.error === "policy");
+}
+// 5d) مفتاح خاطئ → disabled
+{
+  spy = async () => jsonRes(401, { message: "invalid api key" });
+  try {
+    await agnesAdapter.createTask("bad", "agnes-video-2-5", { prompt: "x", params: {}, providerModel: "agnes-video-2.5" });
+    check("AGNES: يجب أن يرمي عند 401", false);
+  } catch (err: any) {
+    check("AGNES: 401 → disabled (تعطيل تلقائي)", classifyProviderError(err.status, err.message) === "disabled", { cls: classifyProviderError(err.status, err.message) });
+  }
+}
+
+/* ============ 6) سجل الموديلات ============ */
 console.log("\n📚 سجل الموديلات");
 {
   const flux = resolveModel("flux-1-schnell");
@@ -230,6 +358,14 @@ console.log("\n📚 سجل الموديلات");
   check("MODELS: grok كما هو (kie+cometapi)", !!grok && grok.providers.length === 2);
   const flare = resolveModel("gpt-image-2-6/flare-text-to-image");
   check("MODELS: flare كما هو", !!flare && flare.providers.length === 2);
+  const zi = resolveModel("z-image-turbo");
+  check("MODELS: z-image-turbo (modelscope فقط)", !!zi && zi.type === "image" && zi.providers.length === 1 && zi.providers[0] === "modelscope");
+  const aimg = resolveModel("agnes-image-2.1-flash");
+  check("MODELS: agnes-image alias يُوحد لـ agnes-image-2-1-flash", !!aimg && aimg.canonical === "agnes-image-2-1-flash" && aimg.providers[0] === "agnes");
+  const avid = resolveModel("agnes-video-2-5-flash");
+  check("MODELS: agnes-video-2-5-flash (agnes فقط)", !!avid && avid.type === "video" && avid.providers.length === 1 && avid.providers[0] === "agnes");
+  const afid = resolveModel("agnes-video-2.5");
+  check("MODELS: agnes-video-2.5 alias يعمل", !!afid && afid.canonical === "agnes-video-2-5");
 }
 
 /* ============ الخلاصة ============ */

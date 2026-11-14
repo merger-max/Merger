@@ -157,7 +157,7 @@ export async function runGeneration(opts: GenerateParams): Promise<GenerationOut
   const modelDef = resolveModel(opts.model);
   if (!modelDef) {
     throw new Error(
-      `موديل غير معروف: ${opts.model}. المتاح: gpt-image-2-6/flare-text-to-image و flux-1-schnell (صور)، grok-imagine-video-1-5-preview و seedance-1-0-pro (فيديو)`,
+      `موديل غير معروف: ${opts.model}. المتاح صور: gpt-image-2-6/flare-text-to-image، flux-1-schnell، z-image-turbo، agnes-image-2-1-flash — وفيديو: grok-imagine-video-1-5-preview، seedance-1-0-pro، agnes-video-2-5، agnes-video-2-5-flash`,
     );
   }
 

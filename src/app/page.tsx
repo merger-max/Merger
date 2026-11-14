@@ -88,6 +88,8 @@ const PROVIDER_LABEL: Record<string, string> = {
   cloudflare: "Cloudflare",
   volc: "Volcengine",
   novita: "Novita",
+  modelscope: "ModelScope",
+  agnes: "Agnes AI",
 };
 /** تلميح صغير لكل مزود — يظهر تحت نموذج الإضافة حسب المزود المختار */
 const PROVIDER_HINT: Record<string, string> = {
@@ -95,14 +97,16 @@ const PROVIDER_HINT: Record<string, string> = {
   cometapi: "مفتاح من cometapi.com (بدون بطاقة) — كريديت تجريبي مجاني + 500 موديل.",
   cloudflare: "مفتاح من dash.cloudflare.com (Workers AI → API Keys) — 10,000 نيورون يوميًا مجانًا للأبد. الصق المفتاح بصيغة: account_id:token لضمان العمل، أو التوكن فقط وسنحلل معرف الحساب تلقائيًا.",
   volc: "مفتاح Ark من console.volcengine.com (حصة Seedance الترحيبية) — ~8 فيديوهات 15 ثانية 1080p مجانًا.",
-  novita: "مفتاح من novita.ai (لوحة الحساب → API Keys) — حتى $100 ساندبوكس لمدة 90 يومًا.",
+  novita: "مفتاح من novita.ai (لوحة الحساب → API Keys) — القسيمة الترحيبية أصبحت صغيرة (~$0.5)؛ للصور المجانية استخدم Cloudflare أو ModelScope أو Agnes أولًا.",
+  modelscope: "توكن من modelscope.cn (صفحة my/myaccesstoken — يبدأ بـ ms-) — 2,000 نداء صور يوميًا مجانًا من Alibaba (موديل z-image-turbo). فعّل Bind Alibaba Cloud أول مرة من إعدادات الحساب.",
+  agnes: "مفتاح من agnes-ai.com (لوحة الحساب → API Keys) — صور وفيديو مجاني للبدء بواجهة OpenAI (حد ~20 صورة/دقيقة)، موديلات agnes-image-2-1-flash و agnes-video-2-5.",
 };
 
 /* ===================== رقائق الأدوات الخمس (ثابتة) ===================== */
 
 const TOOL_CHIPS: { name: string; desc: string }[] = [
-  { name: "generate_image", desc: "توليد صورة من وصف نصي بموديل gpt-image-2-6/flare-text-to-image مع تبديل تلقائي عبر كل المفاتيح." },
-  { name: "generate_video", desc: "توليد فيديو بصوت متزامن أصلي بموديل grok-imagine-video-1-5-preview مع image-to-video اختياري." },
+  { name: "generate_image", desc: "توليد صورة من وصف نصي — موديلات: flare (kie/CometAPI)، flux-1-schnell (Cloudflare/Novita)، z-image-turbo (ModelScope)، agnes-image-2-1-flash (Agnes) — تبديل تلقائي عبر كل المفاتيح." },
+  { name: "generate_video", desc: "توليد فيديو — موديلات: grok-imagine (kie/CometAPI بصوت أصلي)، seedance-1-0-pro (Volcengine)، agnes-video-2-5 (Agnes حتى 12 ثانية) — مع image-to-video اختياري." },
   { name: "merge_videos", desc: "دمج عدة مقاطع في فيديو واحد بالترتيب المعطى عبر urls أو task_ids — الناتج يُحذف بعد ~24 ساعة." },
   { name: "get_task", desc: "تتبع أي مهمة بمعرّفها — صور/فيديو/دمج — ويحدّث حالتها حية من المزود." },
   { name: "list_media", desc: "أحدث الوسائط المخزنة بروابطها من قاعدة البيانات بدون إعادة توليد." },
@@ -294,6 +298,8 @@ export default function Dashboard() {
                 <option value="cloudflare">Cloudflare (صور مجانية)</option>
                 <option value="volc">Volcengine (فيديو مجاني)</option>
                 <option value="novita">Novita (صور)</option>
+                <option value="modelscope">ModelScope (صور مجانية)</option>
+                <option value="agnes">Agnes AI (صور + فيديو)</option>
               </select>
               <input
                 value={label}

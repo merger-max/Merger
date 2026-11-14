@@ -1,12 +1,14 @@
 /**
  * سجل المزودات — نقطة الوصول الموحدة للـ adapters حسب provider id.
- * المزودون الخمسة: kie / cometapi (مدفوعان) + cloudflare (صور مجانية يومية) / volc (فيديو Seedance) / novita (صور).
+ * المزودون السبعة: kie / cometapi (مدفوعان) + cloudflare / volc / novita / modelscope / agnes (مجانيون).
  */
 import { kieAdapter } from "./kie";
 import { cometApiAdapter } from "./cometapi";
 import { cloudflareAdapter } from "./cloudflare";
 import { volcAdapter } from "./volc";
 import { novitaAdapter } from "./novita";
+import { modelscopeAdapter } from "./modelscope";
+import { agnesAdapter } from "./agnes";
 import type { ProviderAdapter, ProviderId } from "./types";
 
 export const PROVIDERS: Record<ProviderId, ProviderAdapter> = {
@@ -15,6 +17,8 @@ export const PROVIDERS: Record<ProviderId, ProviderAdapter> = {
   cloudflare: cloudflareAdapter,
   volc: volcAdapter,
   novita: novitaAdapter,
+  modelscope: modelscopeAdapter,
+  agnes: agnesAdapter,
 };
 
 export function getAdapter(provider: ProviderId): ProviderAdapter {

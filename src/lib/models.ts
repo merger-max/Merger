@@ -1,11 +1,12 @@
 /**
  * سجل الموديلات — الأسماء القياسية، الصيغ البديلة المقبولة، والمزودون القادرون على خدمة كل موديل.
  * الأسماء قابلة للتجاوز بمتغيرات البيئة (KIE_IMAGE_MODEL, KIE_VIDEO_MODEL, COMETAPI_IMAGE_MODEL,
- * COMETAPI_VIDEO_MODEL, CF_IMAGE_MODEL, VOLC_VIDEO_MODEL, NOVITA_IMAGE_MODEL).
- * المزودون الخمسة: kie / cometapi / cloudflare (صور مجانية يومية) / volc (Seedance فيديو) / novita (صور).
+ * COMETAPI_VIDEO_MODEL, CF_IMAGE_MODEL, VOLC_VIDEO_MODEL, NOVITA_IMAGE_MODEL,
+ * MODELSCOPE_IMAGE_MODEL, AGNES_IMAGE_MODEL, AGNES_VIDEO_MODEL, AGNES_VIDEO_FLASH_MODEL).
+ * المزودون السبعة: kie / cometapi (مدفوعان) + cloudflare / volc / novita / modelscope / agnes (مجانيون).
  */
 
-export type ProviderId = "kie" | "cometapi" | "cloudflare" | "volc" | "novita";
+export type ProviderId = "kie" | "cometapi" | "cloudflare" | "volc" | "novita" | "modelscope" | "agnes";
 export type TaskProvider = ProviderId | "merger";
 export type MediaType = "image" | "video" | "merge";
 
@@ -65,6 +66,46 @@ export const MODELS: ModelDef[] = [
     providers: ["volc"],
     providerModel: {
       volc: env("VOLC_VIDEO_MODEL", "doubao-seedance-1-0-pro-250528"),
+    },
+  },
+  {
+    // موديل صور ModelScope المجاني (Alibaba) — 2,000 نداء API يوميًا تتجدد + 200 لكل موديل
+    canonical: "z-image-turbo",
+    aliases: ["zimage-turbo", "z-image"],
+    type: "image",
+    providers: ["modelscope"],
+    providerModel: {
+      modelscope: env("MODELSCOPE_IMAGE_MODEL", "Tongyi-MAI/Z-Image-Turbo"),
+    },
+  },
+  {
+    // موديل صور Agnes AI — واجهة OpenAI متوافقة وحصة مجانية للبدء (~20 صورة/دقيقة)
+    canonical: "agnes-image-2-1-flash",
+    aliases: ["agnes-image-2.1-flash"],
+    type: "image",
+    providers: ["agnes"],
+    providerModel: {
+      agnes: env("AGNES_IMAGE_MODEL", "agnes-image-2.1-flash"),
+    },
+  },
+  {
+    // موديل فيديو Agnes AI — 4–12 ثانية بدقات 720P/1080P/2K
+    canonical: "agnes-video-2-5",
+    aliases: ["agnes-video-2.5"],
+    type: "video",
+    providers: ["agnes"],
+    providerModel: {
+      agnes: env("AGNES_VIDEO_MODEL", "agnes-video-2.5"),
+    },
+  },
+  {
+    // النسخة الأسرع من فيديو Agnes — نفس المدى الزمني
+    canonical: "agnes-video-2-5-flash",
+    aliases: ["agnes-video-2.5-flash"],
+    type: "video",
+    providers: ["agnes"],
+    providerModel: {
+      agnes: env("AGNES_VIDEO_FLASH_MODEL", "agnes-video-2.5-flash"),
     },
   },
 ];
