@@ -1,9 +1,11 @@
 /**
  * سجل الموديلات — الأسماء القياسية، الصيغ البديلة المقبولة، والمزودون القادرون على خدمة كل موديل.
- * الأسماء قابلة للتجاوز بمتغيرات البيئة (KIE_IMAGE_MODEL, KIE_VIDEO_MODEL, COMETAPI_IMAGE_MODEL, COMETAPI_VIDEO_MODEL).
+ * الأسماء قابلة للتجاوز بمتغيرات البيئة (KIE_IMAGE_MODEL, KIE_VIDEO_MODEL, COMETAPI_IMAGE_MODEL,
+ * COMETAPI_VIDEO_MODEL, CF_IMAGE_MODEL, VOLC_VIDEO_MODEL, NOVITA_IMAGE_MODEL).
+ * المزودون الخمسة: kie / cometapi / cloudflare (صور مجانية يومية) / volc (Seedance فيديو) / novita (صور).
  */
 
-export type ProviderId = "kie" | "cometapi";
+export type ProviderId = "kie" | "cometapi" | "cloudflare" | "volc" | "novita";
 export type TaskProvider = ProviderId | "merger";
 export type MediaType = "image" | "video" | "merge";
 
@@ -12,7 +14,8 @@ export interface ModelDef {
   aliases: string[]; // صيغ بديلة نقبلها ونوحّدها (شرطات/نقاط)
   type: MediaType;
   providers: ProviderId[]; // من يستطيع خدمته — تُجرَّب مفاتيحهم كلها بالترتيب
-  providerModel: Record<ProviderId, string>; // اسم الموديل كما يُرسل لكل مزود
+  // اسم الموديل كما يُرسَل لكل مزود — المزودون غير القادرين على خدمة الموديل يُحذفون من هنا
+  providerModel: Partial<Record<ProviderId, string>>;
 }
 
 function env(name: string, fallback: string): string {
@@ -41,6 +44,27 @@ export const MODELS: ModelDef[] = [
       // الأسماء الحقيقية المقاسة من GET /api/v1/models لدى kie.ai — بالشرطات
       kie: env("KIE_VIDEO_MODEL", "grok-imagine-video-1-5-preview"),
       cometapi: env("COMETAPI_VIDEO_MODEL", "grok-imagine-video-1.5-preview"),
+    },
+  },
+  {
+    // موديل الصور المجاني — Cloudflare Workers AI (10,000 نيورون يوميًا للأبد) و Novita
+    canonical: "flux-1-schnell",
+    aliases: ["flux.1-schnell", "flux_1_schnell", "flux-schnell"],
+    type: "image",
+    providers: ["cloudflare", "novita"],
+    providerModel: {
+      cloudflare: env("CF_IMAGE_MODEL", "@cf/black-forest-labs/flux-1-schnell"),
+      novita: env("NOVITA_IMAGE_MODEL", "flux-1-schnell"),
+    },
+  },
+  {
+    // موديل الفيديو المجاني للحصة الترحيبية — Volcengine Ark (ByteDance Seedance)
+    canonical: "seedance-1-0-pro",
+    aliases: ["seedance-1.0-pro", "seedance-pro"],
+    type: "video",
+    providers: ["volc"],
+    providerModel: {
+      volc: env("VOLC_VIDEO_MODEL", "doubao-seedance-1-0-pro-250528"),
     },
   },
 ];

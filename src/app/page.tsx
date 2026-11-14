@@ -82,6 +82,21 @@ async function copyText(text: string): Promise<boolean> {
 
 const TYPE_LABEL: Record<string, string> = { image: "صورة", video: "فيديو", merge: "دمج" };
 const TYPE_EMOJI: Record<string, string> = { image: "🖼️", video: "🎬", merge: "🎞️" };
+const PROVIDER_LABEL: Record<string, string> = {
+  kie: "kie.ai",
+  cometapi: "CometAPI",
+  cloudflare: "Cloudflare",
+  volc: "Volcengine",
+  novita: "Novita",
+};
+/** تلميح صغير لكل مزود — يظهر تحت نموذج الإضافة حسب المزود المختار */
+const PROVIDER_HINT: Record<string, string> = {
+  kie: "مفتاح من kie.ai (لوحة الحساب → API Keys) — صور وفيديو grok.",
+  cometapi: "مفتاح من cometapi.com (بدون بطاقة) — كريديت تجريبي مجاني + 500 موديل.",
+  cloudflare: "مفتاح من dash.cloudflare.com (Workers AI → API Keys) — 10,000 نيورون يوميًا مجانًا للأبد. الصق المفتاح بصيغة: account_id:token لضمان العمل، أو التوكن فقط وسنحلل معرف الحساب تلقائيًا.",
+  volc: "مفتاح Ark من console.volcengine.com (حصة Seedance الترحيبية) — ~8 فيديوهات 15 ثانية 1080p مجانًا.",
+  novita: "مفتاح من novita.ai (لوحة الحساب → API Keys) — حتى $100 ساندبوكس لمدة 90 يومًا.",
+};
 
 /* ===================== رقائق الأدوات الخمس (ثابتة) ===================== */
 
@@ -276,6 +291,9 @@ export default function Dashboard() {
               >
                 <option value="kie">kie.ai</option>
                 <option value="cometapi">CometAPI</option>
+                <option value="cloudflare">Cloudflare (صور مجانية)</option>
+                <option value="volc">Volcengine (فيديو مجاني)</option>
+                <option value="novita">Novita (صور)</option>
               </select>
               <input
                 value={label}
@@ -297,6 +315,11 @@ export default function Dashboard() {
               </Button>
             </div>
 
+            {/* تلميح المزود المختار */}
+            <p className="text-xs text-zinc-400 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-2">
+              💡 {PROVIDER_HINT[provider] ?? "الصق مفتاح API صالح للمزود المختار."}
+            </p>
+
             {/* قائمة المفاتيح */}
             <div className="max-h-96 overflow-y-auto rounded-xl border border-zinc-800 divide-y divide-zinc-800">
               {keys.length === 0 && (
@@ -307,7 +330,7 @@ export default function Dashboard() {
               {keys.map((k) => (
                 <div key={k.id} className="p-4 flex flex-wrap items-center gap-3">
                   <Badge variant="outline" className="bg-zinc-800 border-zinc-700 text-zinc-300 font-mono">
-                    {k.provider === "kie" ? "kie.ai" : "CometAPI"}
+                    {PROVIDER_LABEL[k.provider] ?? k.provider}
                   </Badge>
                   <code dir="ltr" className="text-sm font-mono text-zinc-200 bg-zinc-800/70 px-2 py-1 rounded">
                     {k.maskedKey}

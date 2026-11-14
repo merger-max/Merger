@@ -17,7 +17,9 @@ import { MODELS } from "./models";
 
 export const SERVER_INFO = { name: "media-generator-mcp", version: "1.2.0" } as const;
 
-export const SERVER_INSTRUCTIONS = `AI media generation server (kie.ai + CometAPI with automatic sequential multi-key failover, plus video merging).
+export const SERVER_INSTRUCTIONS = `AI media generation server (5 providers: kie.ai, CometAPI, Cloudflare Workers AI free daily images, Volcengine Seedance free video, Novita — with automatic sequential multi-key failover, plus video merging).
+Image models: gpt-image-2-6/flare-text-to-image (kie/CometAPI) or flux-1-schnell (Cloudflare/Novita free credits).
+Video models: grok-imagine-video-1-5-preview (kie/CometAPI, 1-15s native audio) or seedance-1-0-pro (Volcengine free trial, 3-12s).
 Workflow: call generate_image or generate_video. If the response contains finished URLs, show them to the user.
 If it returns a task_id with status PROCESSING, call get_task with that task_id every ~10 seconds until status is completed (show the URL) or failed (explain why).
 IMPORTANT: the server automatically switches API keys in strict order on any failure (exhausted balance, invalid key, rate limits) and continues the SAME task under the same task_id — you will never encounter key/balance errors. Never stop or warn the user about keys or balances; just keep polling get_task until the result appears.
@@ -60,11 +62,12 @@ export function createMcpServer(): McpServer {
     "generate_image",
     {
       description:
-        "Generate an image with gpt-image-2-6/flare-text-to-image (automatic sequential failover across all active API keys). " +
+        "Generate an image. Models: 'gpt-image-2-6/flare-text-to-image' (kie.ai/CometAPI) or 'flux-1-schnell' (free daily tier on Cloudflare Workers AI / Novita credits). " +
+        "Automatic sequential failover across all active API keys. " +
         "Returns a ready image URL if it finishes within the wait window; otherwise returns a task_id — call get_task every ~10 seconds until completed, then show the URL and stop.",
       inputSchema: {
         prompt: z.string().min(1, "الحقل prompt مطلوب — ما الذي تريد رسمه؟").describe("What to draw. Detailed prompts give better results."),
-        model: z.enum(["gpt-image-2-6/flare-text-to-image", "gpt-image-2.6/flare-text-to-image"]).default("gpt-image-2-6/flare-text-to-image"),
+        model: z.enum(["gpt-image-2-6/flare-text-to-image", "gpt-image-2.6/flare-text-to-image", "flux-1-schnell", "flux.1-schnell"]).default("gpt-image-2-6/flare-text-to-image"),
         aspect_ratio: z.enum(["auto", "1:1", "3:2", "2:3", "4:3", "3:4", "5:4", "4:5", "16:9", "9:16", "2:1", "1:2", "21:9", "9:21", "3:1", "1:3"]).default("auto"),
         resolution: z.enum(["1K", "2K", "4K"]).default("1K"),
         background: z.enum(["auto", "transparent", "opaque"]).default("auto").describe("Only applied at 1K."),
@@ -102,12 +105,12 @@ export function createMcpServer(): McpServer {
     "generate_video",
     {
       description:
-        "Generate a video with grok-imagine-video-1-5-preview (native synchronized audio/dialogue/SFX; optional image-to-video via image_url). " +
+        "Generate a video. Models: 'grok-imagine-video-1-5-preview' (native synchronized audio/dialogue/SFX, 1-15s, kie.ai/CometAPI) or 'seedance-1-0-pro' (ByteDance Seedance via Volcengine free trial, 3-12s, image-to-video via image_url). " +
         "Video takes minutes: a short wait with live progress is returned first, then a task_id — track it with get_task every ~10 seconds until completed.",
       inputSchema: {
         prompt: z.string().max(4096, "الوصف يتجاوز 4096 حرفًا").describe("Scene description. Dialogue in the prompt is spoken in the video."),
         image_url: z.string().optional().describe("Optional public image URL as the first frame (image-to-video)."),
-        model: z.enum(["grok-imagine-video-1-5-preview", "grok-imagine-video-1.5-preview"]).default("grok-imagine-video-1-5-preview"),
+        model: z.enum(["grok-imagine-video-1-5-preview", "grok-imagine-video-1.5-preview", "seedance-1-0-pro", "seedance-1.0-pro"]).default("grok-imagine-video-1-5-preview"),
         aspect_ratio: z.enum(["auto", "1:1", "16:9", "9:16", "3:2", "2:3"]).default("auto"),
         resolution: z.enum(["480p", "720p", "1080p"]).default("480p"),
         enable_audio: z.boolean().default(true),

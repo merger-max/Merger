@@ -30,7 +30,7 @@ import {
   type ErrorClass,
 } from "./keys";
 import { getAdapter, type GenerateTaskInput } from "./providers";
-import { resolveModel, MERGE_MODEL, type ModelDef } from "./models";
+import { resolveModel, MERGE_MODEL, type ModelDef, type ProviderId } from "./models";
 import { mergerClient } from "./merger";
 
 const POLL_INTERVAL_MS = 3_000; // استعلام كل 3 ثوانٍ أثناء نافذة الانتظار
@@ -78,10 +78,13 @@ async function createOnCandidates(
   for (let i = Math.max(0, startIdx); i < candidates.length; i++) {
     const key = candidates[i];
     const adapter = getAdapter(key.provider as any);
+    // المزود غير القادر على خدمة هذا الموديل يُتخطى فورًا (لا اسم موديل له في السجل)
+    const providerModel = modelDef.providerModel[key.provider as ProviderId];
+    if (!providerModel) continue;
     const input: GenerateTaskInput = {
       prompt,
       params: { ...params, __type: modelDef.type },
-      providerModel: modelDef.providerModel[key.provider as "kie" | "cometapi"],
+      providerModel,
     };
     try {
       // صور CometAPI متزامنة — تعيد الروابط فورًا
@@ -154,7 +157,7 @@ export async function runGeneration(opts: GenerateParams): Promise<GenerationOut
   const modelDef = resolveModel(opts.model);
   if (!modelDef) {
     throw new Error(
-      `موديل غير معروف: ${opts.model}. المتاح: gpt-image-2-6/flare-text-to-image (صور)، grok-imagine-video-1-5-preview (فيديو)`,
+      `موديل غير معروف: ${opts.model}. المتاح: gpt-image-2-6/flare-text-to-image و flux-1-schnell (صور)، grok-imagine-video-1-5-preview و seedance-1-0-pro (فيديو)`,
     );
   }
 

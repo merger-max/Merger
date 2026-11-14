@@ -3,7 +3,7 @@
 نظامان مترابطان في مستودع واحد:
 
 1. **تطبيق MCP Media Generator** (جذر المستودع — Next.js 16 + TypeScript + Tailwind)
-   خادم MCP على المسار `/mcp` لتوليد الصور والفيديو بالذكاء الاصطناعي (kie.ai + CometAPI) ودمج المقاطع، مع **تبديل مفاتيح تسلسلي تلقائي** ولوحة إدارة عربية RTL.
+   خادم MCP على المسار `/mcp` لتوليد الصور والفيديو بالذكاء الاصطناعي عبر **5 مزودين** (kie.ai + CometAPI + Cloudflare Workers AI + Volcengine Seedance + Novita) ودمج المقاطع، مع **تبديل مفاتيح تسلسلي تلقائي** ولوحة إدارة عربية RTL.
 
 2. **خدمة دمج الفيديو** (مجلد `merger-service/` — Node.js خالص لدوال Vercel Serverless)
    موقع دمج فيديوهات + واجهة API عامة، تنفّذ الدمج بـ ffmpeg داخل الدالة وتخزّن كل شيء في Turso — هي نفسها `MERGER_API_BASE` التي يستخدمها التطبيق الأول لدمج المقاطع.
@@ -88,19 +88,32 @@ npm run test:http             # 20 اختبار: كل نقاط API
 
 ## 🔑 نظام المفاتيح المتسلسلة (قلب التوليد)
 
-- أضف عدة مفاتيح لكل مزود (kie.ai / CometAPI) من لوحة الإدارة.
+- أضف عدة مفاتيح من أي مزود من الخمسة: **kie.ai / CometAPI / Cloudflare / Volcengine / Novita** — من لوحة الإدارة.
 - **التجربة تسلسلية صارمة بترتيب الإضافة** (`created_at ASC, id ASC`) — ليست round-robin.
 - عند أي خطأ: تعطيل تلقائي (401/403)، أو تعليم `exhausted` (402/نفاد رصيد)، أو الانتقال للمفتاح التالي — **دون توقف المهمة**، ونفس `task_id` يُستأنف على المفتاح التالي.
 - المفتاح المستنزف يبقى في القاعدة ويُجرَّب أولًا دائمًا — لو شحنت رصيده تكتمل المهمة المعلقة تلقائيًا مع أول `get_task`.
 - نموذج الذكاء الاصطناعي **لا يرى أبدًا** أخطاء المفاتيح أو الرصيد — التبديل صامت تمامًا.
 - إخفاء المفاتيح إلزامي في كل الاستجابات (`ABCD123••••••••WXYZ`).
+- الموديل لا يُرسل لمزود لا يقدر عليه — المزودون الجدد يخدمون موديلاتهم فقط (سجل الموديلات يحدد من يخدم ماذا).
+
+## 🎁 المزودون الخمسة وموديلاتهم
+
+| المزود | الموديل | النوع | الحصة المجانية | ملاحظات المفتاح |
+|---|---|---|---|---|
+| kie.ai | `gpt-image-2-6/flare-text-to-image` و `grok-imagine-video-1-5-preview` | صور + فيديو | 80 كريديت للحساب الجديد | من لوحة الحساب |
+| CometAPI | نفس الاثنين أعلاه (أسماء بالنقاط) | صور + فيديو | كريديت تجريبي بدون بطاقة | من cometapi.com |
+| **Cloudflare Workers AI** | `flux-1-schnell` | صور متزامنة | **10,000 نيورون/يوم للأبد** (~40 صورة يوميًا) | من dash.cloudflare.com — الصق بصيغة `account_id:token` أو التوكن فقط (يُحلَّل الحساب تلقائيًا) |
+| **Volcengine (Ark)** | `seedance-1-0-pro` | فيديو 3–12 ثانية | حصة ترحيبية ~8 فيديوهات 1080p | مفتاح Ark من console.volcengine.com |
+| **Novita AI** | `flux-1-schnell` | صور غير متزامنة | حتى $100 ساندبوكس / 90 يوم | من novita.ai — روابط صورها لها صلاحية محدودة (TTL) |
+
+أسماء الموديلات لكل مزود قابلة للتجاوز بمتغيرات البيئة: `CF_IMAGE_MODEL`, `VOLC_VIDEO_MODEL`, `NOVITA_IMAGE_MODEL` (+ القديمة `KIE_*` و `COMETAPI_*`).
 
 ## 🧰 الأدوات الخمس على /mcp
 
 | الأداة | الوظيفة |
 |---|---|
-| `generate_image` | توليد صورة بـ `gpt-image-2-6/flare-text-to-image` — تعيد الرابط جاهزًا إن اكتملت خلال نافذة الانتظار وإلا `task_id`. |
-| `generate_video` | توليد فيديو بـ `grok-imagine-video-1-5-preview` (صوت أصلي متزامن، image-to-video اختياري). |
+| `generate_image` | توليد صورة — موديل `gpt-image-2-6/flare-text-to-image` (kie/CometAPI) أو `flux-1-schnell` (Cloudflare/Novita المجانية) — تعيد الرابط جاهزًا إن اكتملت خلال نافذة الانتظار وإلا `task_id`. |
+| `generate_video` | توليد فيديو — موديل `grok-imagine-video-1-5-preview` (صوت أصلي متزامن 1–15ث، image-to-video اختياري) أو `seedance-1-0-pro` (Volcengine، 3–12ث). |
 | `merge_videos` | دمج 2–10 مقاطع بالترتيب عبر `urls` مباشرة أو `task_ids` لمهام مكتملة — الناتج يُحذف بعد ~24 ساعة. |
 | `get_task` | تتبع أي مهمة (توليد/دمج) ويحدّثها حية من المزود/الخدمة. |
 | `list_media` | أحدث الوسائط المخزنة بروابطها بدون إعادة توليد. |
@@ -165,16 +178,21 @@ curl https://<merger-service>.vercel.app/api/jobs/<jobId>/video -o out.mp4
 - موديل الفيديو grok-imagine-video-1.5: الصوت أصلي ولا يمكن إيقافه — حقل `enable_audio` يُقبل من الأداة ولا يُرسل لـ kie.
 - موديل `grok-imagine-video-1-5-preview` يحتاج رصيدًا كافيًا — عند 402 يُعلَّم المفتاح `exhausted` وتبقى المهمة «بانتظار توفر مفتاح صالح…» وتكتمل تلقائيًا بعد الشحن.
 - **CometAPI:** النقاط المطبعة متوافقة مع الأنماط المعلنة (`/v1/images/generations` متزامن للصور + مهام غير متزامنة للفيديو) — لم يُختبر بمفتاح حقيقي بعد، وأي انحراف يُصنَّف تلقائيًا ويتابع المفاتيح التالية.
+- **Cloudflare:** صور flux-1-schnell متزامنة تُعاد كـ data URI (base64) — لا مهمة غير متزامنة ولا تنزيل وسائط. مفتاح بصيغة خاطئة أو بلا صلاحية قراءة الحسابات → خطأ فئة `provider` فتتابع المفاتيح التالية بلا توقف.
+- **Volcengine:** مدة Seedance 1.0 Pro تُقيَّد على 3–12 ثانية والنسب غير المدعومة تُحوَّل لأقرب نسبة (auto → adaptive). مهمة فاشلة لدى Ark ترجع حقل `error` مع HTTP 200 — يعالجها محقق المهام كفشل مهام لا كخطأ شبكة.
+- **Novita:** صور فقط عبر `v3/async/txt2img` (غلاف `request` + استعلام `v3/async/task-result` بحالات `TASK_STATUS_*`) — نقاط نهاية الفيديو لديها متغيرة حاليًا فتُغطى الفيديوهات المجانية من Volcengine، وروابط الصور الناتجة لها TTL قصير.
+- اختبار المزودين الجدد (بدون شبكة، fetch وهمي): `npx tsx scripts/test-new-providers.mts` — 40 تأكيدًا.
 - على Vercel: `maxDuration = 300` على مسار `/mcp` وخدمة الدمج — تأكد أن خطتك تسمح بها، وإن لم تسمح خفّض `wait_seconds` في استدعاءات الأدوات.
 - `.env*` مستثنى من Git منذ أول commit — لا أسرار في المستودع إطلاقًا، ولا تُطبع مفاتيح كاملة في أي استجابة.
 
 ## 📁 البنية
 
 ```
-├── src/lib/            # turso | keys | models | providers (kie, cometapi) | orchestrator | merger | mcpServer
+├── src/lib/            # turso | keys | models | providers (kie, cometapi, cloudflare, volc, novita) | orchestrator | merger | mcpServer
 ├── src/app/mcp/route.ts        # خادم MCP (Streamable HTTP — stateless)
 ├── src/app/api/                # health | keys | keys/[id] | tasks
 ├── src/app/page.tsx            # لوحة الإدارة العربية RTL
+├── scripts/                    # test-new-providers.mts (اختبار المزودين الثلاثة الجدد)
 └── merger-service/
     ├── api/            # jobs.js | jobs/[id].js | jobs/[id]/process.js | jobs/[id]/video.js | upload.js | config.js | cron.js
     ├── lib/            # db.js (تخزين Turso مجزّأ) | merge.js (ffmpeg) | http.js
