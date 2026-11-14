@@ -45,17 +45,18 @@ export function classifyProviderError(
 ): ErrorClass {
   const msg = (message || "").toLowerCase();
 
-  // 1) المفتاح مرفوض — الحالة أو الرسالة
-  if (status === 401 || status === 403 || DISABLED_PATTERNS.test(msg)) {
-    return "disabled";
-  }
-  // 2) 429 = حد معدل عابر دائمًا — يُفحص قبل أنساب الرصيد لأن رسائل الحد عادة تذكر quota/rate limit
+  // 1) 429 = حد معدل عابر دائمًا — يُفحص أولًا حتى لو ذكرت رسالته quota (فحص الحالة قبل نص الرسالة)
   if (status === 429) {
     return "temporary";
   }
-  // 3) نفاد الرصيد — قبل فحص 400 لأن بعض المزودين يرسلونه بحالة 400
-  if (status === 402 || EXHAUSTED_PATTERNS.test(msg)) {
+  // 2) نفاد رصيد/حصة الرسالة الصريح يفوز على 401/403 — بعض المزودين (Agnes) يرسل النفاد بحالة 403،
+  //    والمفتاح سليم وحسابه فارغ: تعليمه disabled زورًا يقتل مفتاحًا سيتعافى عند إعادة الشحن/التجديد
+  if (EXHAUSTED_PATTERNS.test(msg)) {
     return "exhausted";
+  }
+  // 3) المفتاح مرفوض — الحالة أو الرسالة
+  if (status === 401 || status === 403 || DISABLED_PATTERNS.test(msg)) {
+    return "disabled";
   }
   // 4) الموديل غير مدعوم لدى المزود
   if (

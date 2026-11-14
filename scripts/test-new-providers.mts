@@ -102,6 +102,8 @@ spy = async () => jsonRes(429, { success: false, errors: [{ code: 429, message: 
   check("CLS: 400 + model not found = provider", classifyProviderError(400, "model does not exist") === "provider");
   check("CLS: 403 = disabled", classifyProviderError(403, "forbidden") === "disabled");
   check("CLS: 500 = temporary", classifyProviderError(500, "internal error") === "temporary");
+  // حالة Agnes الفعلية: نفاد الحصة يصل بحالة 403 — يجب exhausted وليس disabled
+  check("CLS: 403 + Insufficient user quota = exhausted (حالة Agnes الحقيقية)", classifyProviderError(403, "Insufficient user quota, remaining: ＄0.000000") === "exhausted");
 }
 
 /* ============ 2) Volcengine Seedance ============ */
