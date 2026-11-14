@@ -74,11 +74,34 @@ export const agnesAdapter: ProviderAdapter = {
     throw new ProviderError(200, "missing image payload in agnes images response");
   },
 
-  /** فيديو فقط — الصور تخدمها createImageSync أعلاه */
+  /** فيديو فقط — الصور تخدمها createImageSync أعلاه.
+   *  العقد من التوثيق الرسمي: mode إجباري (text|keyframe|reference)، seconds نصية "4"–"12" (الافتراضي "5")،
+   *  size من 720P/1080P/1K/2K، وصورة الإطار الأول تُمرر first_frame في وضع keyframe فقط. */
   async createTask(key: string, _model: string, input: GenerateTaskInput) {
+    const p = input.params ?? {};
+    const imageUrl = typeof p.image_url === "string" ? p.image_url.trim() : "";
+    const body: Record<string, unknown> = {
+      model: input.providerModel,
+      prompt: input.prompt,
+      mode: imageUrl ? "keyframe" : "text",
+      n: 1,
+    };
+    // المدة: نصية ومقيَّدة على مدى Agnes — تُرسل فقط حين زوّدها العميل
+    const dur = typeof p.duration === "number" ? p.duration : Number(p.duration);
+    if (Number.isFinite(dur) && dur > 0) {
+      body.seconds = String(Math.min(12, Math.max(4, Math.round(dur))));
+    }
+    // الدقة: Agnes لا تدعم 480p — نرفعها إلى 720P
+    const sizeMap: Record<string, string> = { "480p": "720P", "720p": "720P", "1080p": "1080P" };
+    const res = typeof p.resolution === "string" ? p.resolution.toLowerCase() : "";
+    if (sizeMap[res]) body.size = sizeMap[res];
+    // النسبة: المدعومة المؤكدة فقط — غير ذلك تُحذف (الافتراضي لدى Agnes هو 16:9)
+    const ar = typeof p.aspect_ratio === "string" ? p.aspect_ratio : "";
+    if (ar === "1:1" || ar === "16:9" || ar === "9:16") body.aspect_ratio = ar;
+    if (imageUrl) body.first_frame = imageUrl;
     const data = await agnesFetch(`${BASE}/v1/videos`, key, {
       method: "POST",
-      body: JSON.stringify({ model: input.providerModel, prompt: input.prompt }),
+      body: JSON.stringify(body),
     });
     const videoId = data?.video_id ?? data?.id ?? data?.data?.video_id ?? data?.data?.id;
     if (!videoId) {

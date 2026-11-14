@@ -304,21 +304,41 @@ console.log("\n🟧 Agnes AI");
   });
   check("AGNES: url تُمرر كما هي", r2.urls[0] === "https://agnes.example/a.png");
 }
-// 5b) فيديو — الإنشاء وضغط model داخل المعرف
+// 5b) فيديو — الجسم الكامل: mode إجباري و seconds نصية مقيدة وضغط model داخل المعرف
 {
   spy = async (url, init) => {
     check("AGNES: نقطة الفيديو", url.endsWith("/v1/videos"), url);
     const b = JSON.parse(init?.body as string);
     check("AGNES: model الفيديو يُرسل", b.model === "agnes-video-2.5");
     check("AGNES: prompt يُرسل", b.prompt === "waves");
+    check("AGNES: mode=text إجباري", b.mode === "text");
+    check("AGNES: n=1", b.n === 1);
+    check("AGNES: seconds نصية ومقيدة 15→12", b.seconds === "12");
+    check("AGNES: 480p → 720P (أدنى مدى مدعوم)", b.size === "720P");
     return jsonRes(200, { video_id: "vid-7" });
   };
   const r = await agnesAdapter.createTask("agnes-key", "agnes-video-2-5", {
     prompt: "waves",
-    params: { __type: "video" },
+    params: { __type: "video", duration: 15, resolution: "480p" },
     providerModel: "agnes-video-2.5",
   });
   check("AGNES: المعرف بصيغة model@@video_id", r.providerTaskId === "agnes-video-2.5@@vid-7", r.providerTaskId);
+}
+// 5b-2) صورة كإطار أول → mode=keyframe مع first_frame، وبدون مدة/نسبة تُحذف الحقول
+{
+  spy = async (_u, init) => {
+    const b = JSON.parse(init?.body as string);
+    check("AGNES: صورة → mode=keyframe", b.mode === "keyframe");
+    check("AGNES: الصورة في first_frame", b.first_frame === "https://x/img.jpg");
+    check("AGNES: بلا مدة → لا حقل seconds", b.seconds === undefined);
+    check("AGNES: auto → لا حقل aspect_ratio", b.aspect_ratio === undefined);
+    return jsonRes(200, { video_id: "vid-8" });
+  };
+  await agnesAdapter.createTask("agnes-key", "agnes-video-2-5", {
+    prompt: "waves",
+    params: { __type: "video", aspect_ratio: "auto", image_url: "https://x/img.jpg" },
+    providerModel: "agnes-video-2.5",
+  });
 }
 // 5c) الاستعلام — يفك model_name من المعرف ويحلل الحالات
 {

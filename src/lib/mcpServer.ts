@@ -87,8 +87,11 @@ export function createMcpServer(): McpServer {
           onProgress: progressReporter(extra),
         });
         if (outcome.kind === "no_keys") {
+          const av = outcome.availableModels ?? [];
           return textResult(
-            `❌ لا توجد مفاتيح نشطة لخدمة ${outcome.model}. أضف مفتاحًا واحدًا على الأقل من واجهة الإدارة، ثم أعد المحاولة.`,
+            av.length
+              ? `❌ لا توجد مفاتيح نشطة لخدمة ${outcome.model}.\n✅ الموديلات الجاهزة للعمل بمفاتيحك الحالية: ${av.join(" ، ")}.\nأعد المحاولة فورًا بطلب أحد هذه الموديلات بالاسم الصريح — لا تنتظر مفاتيح ${outcome.model}.`
+              : `❌ لا توجد مفاتيح نشطة لخدمة ${outcome.model}. أضف مفتاحًا واحدًا على الأقل من واجهة الإدارة، ثم أعد المحاولة.`,
             true,
           );
         }
@@ -130,8 +133,11 @@ export function createMcpServer(): McpServer {
           onProgress: progressReporter(extra),
         });
         if (outcome.kind === "no_keys") {
+          const av = outcome.availableModels ?? [];
           return textResult(
-            `❌ لا توجد مفاتيح نشطة لخدمة ${outcome.model}. أضف مفتاحًا واحدًا على الأقل من واجهة الإدارة، ثم أعد المحاولة.`,
+            av.length
+              ? `❌ لا توجد مفاتيح نشطة لخدمة ${outcome.model}.\n✅ الموديلات الجاهزة للعمل بمفاتيحك الحالية: ${av.join(" ، ")}.\nأعد المحاولة فورًا بطلب أحد هذه الموديلات بالاسم الصريح — لا تنتظر مفاتيح ${outcome.model}.`
+              : `❌ لا توجد مفاتيح نشطة لخدمة ${outcome.model}. أضف مفتاحًا واحدًا على الأقل من واجهة الإدارة، ثم أعد المحاولة.`,
             true,
           );
         }

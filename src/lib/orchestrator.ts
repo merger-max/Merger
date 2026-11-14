@@ -30,7 +30,7 @@ import {
   type ErrorClass,
 } from "./keys";
 import { getAdapter, type GenerateTaskInput } from "./providers";
-import { resolveModel, MERGE_MODEL, type ModelDef, type ProviderId } from "./models";
+import { resolveModel, MERGE_MODEL, MODELS, type ModelDef, type ProviderId } from "./models";
 import { mergerClient } from "./merger";
 
 const POLL_INTERVAL_MS = 3_000; // استعلام كل 3 ثوانٍ أثناء نافذة الانتظار
@@ -50,8 +50,19 @@ export interface GenerateParams {
 }
 
 export type GenerationOutcome =
-  | { kind: "no_keys"; model: string }
+  | { kind: "no_keys"; model: string; availableModels: string[] }
   | { kind: "task"; task: TaskRow };
+
+/** الموديلات القابلة للعمل الآن — لديها مفتاح مرشح واحد على الأقل؛ توجّه عميل MCP ليطلب موديلًا متاحًا عند no_keys */
+async function listAvailableModels(): Promise<string[]> {
+  const { getKeyPool } = await import("./turso");
+  const out: string[] = [];
+  for (const m of MODELS) {
+    const pool = await getKeyPool(m.providers);
+    if (pool.length) out.push(m.canonical);
+  }
+  return out;
+}
 
 /* ==================== الإنشاء على المفاتيح بالترتيب ==================== */
 
@@ -165,7 +176,11 @@ export async function runGeneration(opts: GenerateParams): Promise<GenerationOut
   const { getKeyPool } = await import("./turso");
   const candidates = await getKeyPool(modelDef.providers);
   if (!candidates.length) {
-    return { kind: "no_keys", model: modelDef.canonical };
+    return {
+      kind: "no_keys",
+      model: modelDef.canonical,
+      availableModels: await listAvailableModels(),
+    };
   }
 
   // 3) سجّل المهمة في Turso قبل أي نداء خارجي (تظل قابلة للتتبع حتى لو انقطع الاتصال)
