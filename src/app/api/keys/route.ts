@@ -10,7 +10,7 @@ import { maskKey } from "@/lib/keys";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const VALID_PROVIDERS = new Set(["kie", "cometapi", "cloudflare", "volc", "novita", "modelscope", "agnes"]);
+const VALID_PROVIDERS = new Set(["kie", "cometapi", "cloudflare", "volc", "novita", "modelscope", "agnes", "qwencloud"]);
 
 function serializeKey(k: ApiKeyRow) {
   return {
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
   if (!VALID_PROVIDERS.has(provider)) {
     return NextResponse.json(
-      { error: "المزود يجب أن يكون أحد: kie / cometapi / cloudflare / volc / novita / modelscope / agnes" },
+      { error: "المزود يجب أن يكون أحد: kie / cometapi / cloudflare / volc / novita / modelscope / agnes / qwencloud" },
       { status: 400 },
     );
   }

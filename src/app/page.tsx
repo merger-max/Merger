@@ -90,6 +90,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   novita: "Novita",
   modelscope: "ModelScope",
   agnes: "Agnes AI",
+  qwencloud: "QwenCloud",
 };
 /** تلميح صغير لكل مزود — يظهر تحت نموذج الإضافة حسب المزود المختار */
 const PROVIDER_HINT: Record<string, string> = {
@@ -100,6 +101,7 @@ const PROVIDER_HINT: Record<string, string> = {
   novita: "مفتاح من novita.ai (لوحة الحساب → API Keys) — القسيمة الترحيبية أصبحت صغيرة (~$0.5)؛ للصور المجانية استخدم Cloudflare أو ModelScope أو Agnes أولًا.",
   modelscope: "توكن من modelscope.cn (صفحة my/myaccesstoken — يبدأ بـ ms-) — 2,000 نداء صور يوميًا مجانًا من Alibaba (موديل z-image-turbo). فعّل Bind Alibaba Cloud أول مرة من إعدادات الحساب.",
   agnes: "مفتاح من agnes-ai.com (لوحة الحساب → API Keys) — صور وفيديو مجاني للبدء بواجهة OpenAI (حد ~20 صورة/دقيقة)، موديلات agnes-image-2-1-flash و agnes-video-2-5.",
+  qwencloud: "مفتاح من home.qwencloud.com/api-keys (Alibaba عالميًا — مدفوع) — اختر المنطقة عند الإنشاء فالمفتاح مقيد بها. يبدأ sk-ws- (دفع بالنداء) أو sk-sp- (اشتراك، سنغافورة فقط). الصق بصيغة region:key (مثل ap-southeast-1:sk-ws-…) إن أردت منطقة غير الافتراضية، والافتراضي ap-southeast-1. صور qwen-image متزامنة وفيديو wan-video 2-15 ثانية — روابط النتائج تنتهي بعد 24 ساعة فنزّلها فورًا.",
 };
 
 /* ===================== رقائق الأدوات الخمس (ثابتة) ===================== */

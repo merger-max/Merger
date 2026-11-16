@@ -1,6 +1,6 @@
 /**
  * سجل المزودات — نقطة الوصول الموحدة للـ adapters حسب provider id.
- * المزودون السبعة: kie / cometapi (مدفوعان) + cloudflare / volc / novita / modelscope / agnes (مجانيون).
+ * المزودون الثمانية: kie / cometapi / qwencloud (مدفوعون) + cloudflare / volc / novita / modelscope / agnes (مجانيون).
  */
 import { kieAdapter } from "./kie";
 import { cometApiAdapter } from "./cometapi";
@@ -9,6 +9,7 @@ import { volcAdapter } from "./volc";
 import { novitaAdapter } from "./novita";
 import { modelscopeAdapter } from "./modelscope";
 import { agnesAdapter } from "./agnes";
+import { qwencloudAdapter } from "./qwencloud";
 import type { ProviderAdapter, ProviderId } from "./types";
 
 export const PROVIDERS: Record<ProviderId, ProviderAdapter> = {
@@ -19,6 +20,7 @@ export const PROVIDERS: Record<ProviderId, ProviderAdapter> = {
   novita: novitaAdapter,
   modelscope: modelscopeAdapter,
   agnes: agnesAdapter,
+  qwencloud: qwencloudAdapter,
 };
 
 export function getAdapter(provider: ProviderId): ProviderAdapter {

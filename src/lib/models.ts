@@ -2,11 +2,12 @@
  * سجل الموديلات — الأسماء القياسية، الصيغ البديلة المقبولة، والمزودون القادرون على خدمة كل موديل.
  * الأسماء قابلة للتجاوز بمتغيرات البيئة (KIE_IMAGE_MODEL, KIE_VIDEO_MODEL, COMETAPI_IMAGE_MODEL,
  * COMETAPI_VIDEO_MODEL, CF_IMAGE_MODEL, VOLC_VIDEO_MODEL, NOVITA_IMAGE_MODEL,
- * MODELSCOPE_IMAGE_MODEL, AGNES_IMAGE_MODEL, AGNES_VIDEO_MODEL, AGNES_VIDEO_FLASH_MODEL).
- * المزودون السبعة: kie / cometapi (مدفوعان) + cloudflare / volc / novita / modelscope / agnes (مجانيون).
+ * MODELSCOPE_IMAGE_MODEL, AGNES_IMAGE_MODEL, AGNES_VIDEO_MODEL, AGNES_VIDEO_FLASH_MODEL,
+ * QWENCLOUD_IMAGE_MODEL, QWENCLOUD_VIDEO_MODEL, QWENCLOUD_REGION).
+ * المزودون الثمانية: kie / cometapi / qwencloud (مدفوعون) + cloudflare / volc / novita / modelscope / agnes (مجانيون).
  */
 
-export type ProviderId = "kie" | "cometapi" | "cloudflare" | "volc" | "novita" | "modelscope" | "agnes";
+export type ProviderId = "kie" | "cometapi" | "cloudflare" | "volc" | "novita" | "modelscope" | "agnes" | "qwencloud";
 export type TaskProvider = ProviderId | "merger";
 export type MediaType = "image" | "video" | "merge";
 
@@ -106,6 +107,26 @@ export const MODELS: ModelDef[] = [
     providers: ["agnes"],
     providerModel: {
       agnes: env("AGNES_VIDEO_FLASH_MODEL", "agnes-video-2.5-flash"),
+    },
+  },
+  {
+    // موديل صور QwenCloud (Alibaba عالميًا — qwencloud.com) — مدفوع بالنداء/اشتراك، توليد متزامن فوري
+    canonical: "qwen-image",
+    aliases: ["qwenimage"],
+    type: "image",
+    providers: ["qwencloud"],
+    providerModel: {
+      qwencloud: env("QWENCLOUD_IMAGE_MODEL", "qwen-image-2.1-turbo"),
+    },
+  },
+  {
+    // موديل فيديو QwenCloud (Wan) — مهمة غير متزامنة (X-DashScope-Async)، 2–15 ثانية بدقات حتى 1080P
+    canonical: "wan-video",
+    aliases: ["wanvideo"],
+    type: "video",
+    providers: ["qwencloud"],
+    providerModel: {
+      qwencloud: env("QWENCLOUD_VIDEO_MODEL", "wan2.7-t2v"),
     },
   },
 ];

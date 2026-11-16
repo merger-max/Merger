@@ -8,6 +8,7 @@ import { volcAdapter } from "../src/lib/providers/volc";
 import { novitaAdapter } from "../src/lib/providers/novita";
 import { modelscopeAdapter } from "../src/lib/providers/modelscope";
 import { agnesAdapter } from "../src/lib/providers/agnes";
+import { qwencloudAdapter } from "../src/lib/providers/qwencloud";
 import { classifyProviderError } from "../src/lib/keys";
 import { resolveModel } from "../src/lib/models";
 
@@ -104,6 +105,95 @@ spy = async () => jsonRes(429, { success: false, errors: [{ code: 429, message: 
   check("CLS: 500 = temporary", classifyProviderError(500, "internal error") === "temporary");
   // حالة Agnes الفعلية: نفاد الحصة يصل بحالة 403 — يجب exhausted وليس disabled
   check("CLS: 403 + Insufficient user quota = exhausted (حالة Agnes الحقيقية)", classifyProviderError(403, "Insufficient user quota, remaining: ＄0.000000") === "exhausted");
+  // أنماط QwenCloud/DashScope: مفتاح غير صالح بصيغة الشُرَط، ورسالة عجز مالي Arrearage
+  check("CLS: 401 + Invalid API-key (QwenCloud) = disabled", classifyProviderError(401, "Invalid API-key provided") === "disabled");
+  check("CLS: 403 + Arrearage (QwenCloud عجز مالي) = exhausted", classifyProviderError(403, "Arrearage — your account has no enough balance") === "exhausted");
+}
+
+/* ============ 1f) مزود QwenCloud (Alibaba عالميًا) ============ */
+console.log("\n🟪 QwenCloud (qwencloudapi.com)");
+const qcInput = (params: Record<string, unknown>) => ({
+  prompt: "A serene desert camp under starry skies",
+  params: { ...params },
+  providerModel: "qwen-image-2.1-turbo",
+});
+// صور متزامنة: استجابة DashScope multimodal — رابط PNG داخل output.choices[].message.content[].image
+spy = async (url: any) =>
+  String(url).includes("multimodal-generation")
+    ? jsonRes(200, {
+        request_id: "req-1",
+        output: { choices: [{ message: { content: [{ image: "https://result.example/q.png" }] } }] },
+        usage: {},
+      })
+    : jsonRes(500, { message: "unexpected endpoint" });
+{
+  try {
+    const res = await qwencloudAdapter.createImageSync!("sk-ws-key", qcInput({ aspect_ratio: "9:16" }));
+    check(
+      "QC: صور متزامنة → رابط من output.choices",
+      res.urls.length === 1 && res.urls[0] === "https://result.example/q.png",
+      { got: res.urls },
+    );
+  } catch (e: any) {
+    check("QC: صور متزامنة فشل", false, { err: e?.message });
+  }
+}
+// إنشاء فيديو: ترويسة X-DashScope-Async + model + input.prompt/image_url + parameters الجيل الجديد
+let qcVideoBody: any = null;
+spy = async (_url: any, init: any) => {
+  qcVideoBody = { headers: (init?.headers ?? {}) as Record<string, string>, body: JSON.parse(init?.body ?? "{}") };
+  return jsonRes(200, { request_id: "req-2", output: { task_id: "qc-task-77" }, usage: {} });
+};
+{
+  try {
+    const r = await qwencloudAdapter.createTask(
+      "ap-southeast-1:sk-ws-key",
+      "wan2.7-t2v",
+      { prompt: "Neon Tokyo alley at night", params: { aspect_ratio: "16:9", resolution: "1080p", duration: 8, image_url: "https://img/x.png" }, providerModel: "wan2.7-t2v" },
+    );
+    check("QC: فيديو → task_id من output.task_id", r.providerTaskId === "qc-task-77", { got: r.providerTaskId });
+    check("QC: ترويسة X-DashScope-Async: enable", qcVideoBody?.headers?.["X-DashScope-Async"] === "enable");
+    check("QC: الموديل كما أُرسل", qcVideoBody?.body?.model === "wan2.7-t2v");
+    check("QC: input.prompt + image_url", qcVideoBody?.body?.input?.prompt === "Neon Tokyo alley at night" && qcVideoBody?.body?.input?.image_url === "https://img/x.png");
+    check("QC: parameters الجيل الجديد (resolution 1080P + ratio)", qcVideoBody?.body?.parameters?.resolution === "1080P" && qcVideoBody?.body?.parameters?.ratio === "16:9");
+    check("QC: المدة 8 ضمن [2,15]", qcVideoBody?.body?.parameters?.duration === 8);
+  } catch (e: any) {
+    check("QC: إنشاء فيديو فشل", false, { err: e?.message });
+  }
+}
+// استعلام مهمة: SUCCEEDED مع video_url → مكتملة، وFAILED مع رسالة
+spy = async () => jsonRes(200, { output: { task_id: "qc-task-77", task_status: "SUCCEEDED", video_url: "https://result.example/v.mp4" } });
+{
+  try {
+    const r = await qwencloudAdapter.checkTask!("sk-ws-key", "qc-task-77");
+    check("QC: استعلام SUCCEEDED → مكتملة برابط", r.status === "completed" && r.urls?.[0] === "https://result.example/v.mp4", r);
+  } catch (e: any) {
+    check("QC: استعلام فشل", false, { err: e?.message });
+  }
+}
+spy = async () => jsonRes(200, { output: { task_id: "qc-task-78", task_status: "FAILED", code: "InvalidParameter", message: "bad prompt" } });
+{
+  const r = await qwencloudAdapter.checkTask!("sk-ws-key", "qc-task-78");
+  check("QC: استعلام FAILED → فاشلة برسالة", r.status === "failed" && /bad prompt/.test(r.error ?? ""), r);
+}
+// أخطاء: 401 مفتاح غير صالح → disabled، و403 Arrearage → exhausted
+spy = async () => jsonRes(401, { code: "InvalidApiKey", message: "Invalid API-key provided" });
+{
+  try {
+    await qwencloudAdapter.createImageSync!("sk-ws-bad", qcInput({}));
+    check("QC: يجب أن يرمي عند 401", false);
+  } catch (err: any) {
+    check("QC: 401 مفتاح غير صالح", classifyProviderError(err.status, err.message) === "disabled", { err: err?.message });
+  }
+}
+spy = async () => jsonRes(403, { code: "Arrearage", message: "Arrearage. Your account has no enough balance" });
+{
+  try {
+    await qwencloudAdapter.createImageSync!("sk-ws-nope", qcInput({}));
+    check("QC: يجب أن يرمي عند 403", false);
+  } catch (err: any) {
+    check("QC: 403 عجز مالي = exhausted", classifyProviderError(err.status, err.message) === "exhausted", { err: err?.message });
+  }
 }
 
 /* ============ 2) Volcengine Seedance ============ */

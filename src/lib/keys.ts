@@ -26,9 +26,9 @@ export function maskKey(key: string): string {
 }
 
 const DISABLED_PATTERNS =
-  /invalid api key|api key invalid|unauthorized|forbidden|authentication|invalid key|incorrect api key|invalid_token|no auth/i;
+  /invalid api key|api key invalid|invalid[-_ ]?api[-_ ]?key|invalid[-_ ]?token|unauthorized|forbidden|authentication|invalid key|incorrect api key|access denied|no auth/i;
 const EXHAUSTED_PATTERNS =
-  /insufficient|quota|balance|credit|out of credits|exhausted|充值|余额|no enough|payment required|欠费/i;
+  /insufficient|quota|balance|credit|out of credits|exhausted|arrear|充值|余额|no enough|payment required|欠费/i;
 const PROVIDER_PATTERNS = /model not found|unsupported model|not supported|model does not exist|invalid model|unknown model|no such model/i;
 
 /**
